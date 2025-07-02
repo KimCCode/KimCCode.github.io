@@ -6,10 +6,14 @@ sidebar:
   nav: natas
 ---
 
-## Natas 00 Solution
+### Natas 00 Solution
 
 Here’s how you solve level 00…
 
-## Natas 01 Solution
+```js
+  console.log("Hello world")
+```
+
+### Natas 01 Solution
 
 …etc…
