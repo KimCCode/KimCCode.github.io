@@ -346,27 +346,22 @@ but more importantly:
 plain_text XOR cipher_text = key
 ```
 
-We have all we need and the following script produces the encoding we will use to replace the default cookie assigned to us:
-```php
-$payload = array("showpassword"=>"yes", "bgcolor"=>"#ffffff");
-$plain_text = array("showpassword"=>"no", "bgcolor"=>"#ffffff");
-$cipher_text = 'HmYkBwozJw4WNyAAFyB1VUcqOE1JZjUIBis7ABdmbU1GIjEJAyIxTRg';
+Now, we already have the cipher text so we'll get our plain text by encoding the defaultdata:
 
-function xor_encrypt($in) {
-    $key = $plain_text ^ $cipher_text;
-    $text = $in;
-    $outText = '';
+![Index file](/assets/images/11-2.png)
 
-    // Iterate through each character
-    for ($i = 0; $i < strlen($text); $i++) {
-        $outText .= $text[$i] ^ $key[$i % strlen($key)];
-    }
+Next we'll get the key by XOR-ing the two. I decided to use CyberChef:
 
-    return $outText;
-}
+![Index file](/assets/images/11-3.png)
 
-json_decode(xor_encrypt(base64_decode($payload)), true);
-```
+As you can see, eDWo is being repeated which means it is the key. So now that we have the key, we can encrypt our original payload:
+
+![Index file](/assets/images/11-4.png)
+
+After changing our cookie to the value returned, we get the password:
+
+![Index file](/assets/images/11-5.png)
+
 > [!Tip] Takeaway
 > Avoid symmetric encryption algorithms since they are often easier to crack.
 
@@ -374,7 +369,7 @@ json_decode(xor_encrypt(base64_decode($payload)), true);
 
 ___
 **URL :** <http://natas12.natas.labs.overthewire.org/> \
-**Credentials :** *natas12:UJdqkK1pTu6VLt9UHWAgRZz6sVUZ3lEk*
+**Credentials :** *natas12:yZdkjAYZRd3R7tq7T5kXMjMJlOIkzDeB*
 
 I first tried uploading a malicious php file that tries to print the contents of /etc/natas_webpass/natas13:
 ```html
@@ -412,6 +407,7 @@ Following the link executes the code since it is treated as a php file, showing 
 ```html
 trbs5pCjCrkuSknBBKHhaBxq6Wm1j3LC
 ```
+
 > [!Tip] Takeaway
 > Containers should be used to handle file uploads to provide a secure and isolated environment.
 
@@ -474,7 +470,8 @@ The classic
 did the trick:
 
 ![Index file](/assets/images/14-1.png)
-> ![Tip] Takeaway
+
+> [!Tip] Takeaway
 > User input should be sanitised by using in-built functions like mysqli_real_escape_string()
 
 #### Natas 15 Solution
@@ -836,6 +833,9 @@ Changing our the PHPSESSID to the one our script found and then refreshing the p
 
 ![Index file](/assets/images/18-3.png)
 
+> [!Tip] Takeaway
+> Session ids should be more random instead of generated sequentially
+
 #### Natas 19 Solution
 
 ___
@@ -885,6 +885,9 @@ for i in range(MAX+1):
 Again, changing our PHPSESSID to the one our script find produces the password:
 
 ![Index file](/assets/images/19-6.png)
+
+> [!Tip] Takeaway
+> Simple encoding of session ids is still highly vulnerable
 
 #### Natas 20 Solution
 
