@@ -71,6 +71,26 @@ ___
 **URL :** <http://natas3.natas.labs.overthewire.org/> \
 **Credentials :** *natas3:3gqisGdR0pjm6tpkDKdIWO2hSvchLeYH*
 
+Again, we're given an empty page but in the html body we're told the following:
+```html
+<!-- No more information leaks!! Not even Google will find it this time... -->
+```
+
+This comment greatly hints at the robots.txt file. Navigating to http://natas3.natas.labs.overthewire.org/robots.txt reveals:
+
+![Index file](/assets/images/03-1.png)
+
+Navigating to http://natas3.natas.labs.overthewire.org/s3cr3t/ reveals:
+
+![Index file](/assets/images/03-2.png)
+
+Finally, following http://natas3.natas.labs.overthewire.org/s3cr3t/user.txt takes us to a page with the password:
+
+```html
+natas4:QryZXc2e0zahULdHrtHxzyYkj59kUxLQ
+```
+> [!Tip] Takeaway
+> A robots.txt file is a text file that tells web crawlers, like search engine bots, which parts of a website they are allowed to access and which they should avoid.
 #### Natas 04 Solution
 
 ___
@@ -208,13 +228,20 @@ if ($key != "") {
 }
 ?>
 ```
-The passthru() function works like execv(). I confirmed this by attempting to chain multiple shell commands
+The passthru() function works like system(). I confirmed this by attempting to chain multiple shell commands
 
 ![Index file](/assets/images/09-1.png)
 
-Recall, passwords are stored at /etc/natas_webpass/natasX so we can simply use the 'cat' command:
+Recall, passwords are stored at /etc/natas_webpass/natasX so we can simply use the 'cat' command. The following payload:
+```bash
+; cat /etc/natas_webpass/natas10
+```
+gives us:
 
 ![Index file](/assets/images/09-2.png)
+
+> [!Tip] Takeaway
+> Make sure to always sanitise user input through built-in functions like escapeshellarg()
 
 #### Natas 10 Solution
 
@@ -340,6 +367,8 @@ function xor_encrypt($in) {
 
 json_decode(xor_encrypt(base64_decode($payload)), true);
 ```
+> [!Tip] Takeaway
+> Avoid symmetric encryption algorithms since they are often easier to crack.
 
 #### Natas 12 Solution
 
@@ -383,6 +412,8 @@ Following the link executes the code since it is treated as a php file, showing 
 ```html
 trbs5pCjCrkuSknBBKHhaBxq6Wm1j3LC
 ```
+> [!Tip] Takeaway
+> Containers should be used to handle file uploads to provide a secure and isolated environment.
 
 #### Natas 13 Solution
 
@@ -443,6 +474,8 @@ The classic
 did the trick:
 
 ![Index file](/assets/images/14-1.png)
+> ![Tip] Takeaway
+> User input should be sanitised by using in-built functions like mysqli_real_escape_string()
 
 #### Natas 15 Solution
 
@@ -1623,21 +1656,5 @@ Welcome natas28                                                         !<br>Her
     [password] =&gt; 1JNwQM1Oi6J6j1k49Xyw7ZN6pXMQInVj
 )
 ```
-
-#### Natas 28 Solution
-
-___
-**URL :** <http://natas28.natas.labs.overthewire.org/> \
-**Credentials :** *natas28:1JNwQM1Oi6J6j1k49Xyw7ZN6pXMQInVj*
-
-#### Natas 29 Solution
-
-___
-**URL :** <http://natas29.natas.labs.overthewire.org/> \
-**Credentials :** *natas29:*
-
-#### Natas 26 Solution
-
-___
-**URL :** <http://natas30.natas.labs.overthewire.org/> \
-**Credentials :** *natas30:*
+> [!TIP] Takeaway
+> Fields like username should be UNIQUE
