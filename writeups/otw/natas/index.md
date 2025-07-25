@@ -52,7 +52,7 @@ This time the password was no longer simply a comment in the html body, but inst
 ```
 Following the src destination, I noticed the url changed to http://natas2.natas.labs.overthewire.org/files/pixel.png which made me wonder if there was anything at http://natas2.natas.labs.overthewire.org/files.
 
-![Index file](/assets/images/02-1.png)
+![Index file](/assets/images/natas/02-1.png)
 
 Following users.txt, reveals the password for the next level.
 ```html
@@ -78,11 +78,11 @@ Again, we're given an empty page but in the html body we're told the following:
 
 This comment greatly hints at the robots.txt file. Navigating to http://natas3.natas.labs.overthewire.org/robots.txt reveals:
 
-![Index file](/assets/images/03-1.png)
+![Index file](/assets/images/natas/03-1.png)
 
 Navigating to http://natas3.natas.labs.overthewire.org/s3cr3t/ reveals:
 
-![Index file](/assets/images/03-2.png)
+![Index file](/assets/images/natas/03-2.png)
 
 Finally, following http://natas3.natas.labs.overthewire.org/s3cr3t/user.txt takes us to a page with the password:
 
@@ -97,11 +97,11 @@ ___
 **URL :** <http://natas4.natas.labs.overthewire.org/> \
 **Credentials :** *natas4:QryZXc2e0zahULdHrtHxzyYkj59kUxLQ*
 
-![Index file](/assets/images/04-1.png)
+![Index file](/assets/images/natas/04-1.png)
 
 Looking at the network request, there's a referer header.
 
-![Index file](/assets/images/04-2.png)
+![Index file](/assets/images/natas/04-2.png)
 
 So all we needed to do was change it to "http://natas5.natas.labs.overthewire.org/". We can do this with curl and the -e flag which allows us to specify the referer.
 ```html
@@ -120,15 +120,15 @@ ___
 **URL :** <http://natas5.natas.labs.overthewire.org/> \
 **Credentials :** *natas5:0n35PkggAPm2zbEpOU802c0x0Msn1ToK*
 
-![Index file](/assets/images/05-1.png)
+![Index file](/assets/images/natas/05-1.png)
 
 Inspecting the cookies, theres a loggedin cookie with value 0.
 
-![Index file](/assets/images/05-2.png)
+![Index file](/assets/images/natas/05-2.png)
 
 Changing it to 1 and then refreshing the page produces the password for the next level.
 
-![Index file](/assets/images/05-3.png)
+![Index file](/assets/images/natas/05-3.png)
 
 #### Natas 06 Solution
 
@@ -158,7 +158,7 @@ $secret = "FOEIUWGHFEEUHOFUOIU";
 
 Now all we needed to do was pass in the secret to obtain the password for the next level.
 
-![Index file](/assets/images/06-1.png)
+![Index file](/assets/images/natas/06-1.png)
 
 #### Natas 07 Solution
 
@@ -168,15 +168,15 @@ ___
 
 All we are given is a link to the 'Home' and 'About' page.
 
-![Index file](/assets/images/06-1.png)
+![Index file](/assets/images/natas/06-1.png)
 
 After navigating to the 'About' page, I noticed that it makes a GET request with 'About' as a query parameter. 
 
-![Index file](/assets/images/07-2.png)
+![Index file](/assets/images/natas/07-2.png)
 
 Passwords are stored at /etc/natas_webpass/natasX so changing the query parameter to /etc/natas_webpass/natas8 gives us the password for level 8.
 
-![Index file](/assets/images/07-3.png)
+![Index file](/assets/images/natas/07-3.png)
 
 #### Natas 08 Solution
 
@@ -204,11 +204,11 @@ if (array_key_exists("submit", $_POST)) {
 ```
 Reversing the encoding process gives us the following secret:
 
-![Index file](/assets/images/08-1.png)
+![Index file](/assets/images/natas/08-1.png)
 
 Finally, entering the secret gives us the password for the next level.
 
-![Index file](/assets/images/08-2.png)
+![Index file](/assets/images/natas/08-2.png)
 
 #### Natas 09 Solution
 ___
@@ -230,7 +230,7 @@ if ($key != "") {
 ```
 The passthru() function works like system(). I confirmed this by attempting to chain multiple shell commands
 
-![Index file](/assets/images/09-1.png)
+![Index file](/assets/images/natas/09-1.png)
 
 Recall, passwords are stored at /etc/natas_webpass/natasX so we can simply use the 'cat' command. The following payload:
 ```bash
@@ -238,7 +238,7 @@ Recall, passwords are stored at /etc/natas_webpass/natasX so we can simply use t
 ```
 gives us:
 
-![Index file](/assets/images/09-2.png)
+![Index file](/assets/images/natas/09-2.png)
 
 > [!Tip] Takeaway
 > Make sure to always sanitise user input through built-in functions like escapeshellarg()
@@ -282,7 +282,7 @@ grep -i .* /etc/natas_webpass/natas11 dictionary.txt
 ```
 giving us
 
-![Index file](/assets/images/10-1.png)
+![Index file](/assets/images/natas/10-1.png)
 
 #### Natas 11 Solution
 
@@ -292,7 +292,7 @@ ___
 
 We are told that "Cookies are protected with XOR encryption" which indicates some cookie manipulation to get the password.
 
-![Index file](/assets/images/11-1.png)
+![Index file](/assets/images/natas/11-1.png)
 
 Since we are given the source code, the first thing I analysed was the condition required to get the password:
 ```php
@@ -348,19 +348,19 @@ plain_text XOR cipher_text = key
 
 Now, we already have the cipher text so we'll get our plain text by encoding the defaultdata:
 
-![Index file](/assets/images/11-2.png)
+![Index file](/assets/images/natas/11-2.png)
 
 Next we'll get the key by XOR-ing the two. I decided to use CyberChef:
 
-![Index file](/assets/images/11-3.png)
+![Index file](/assets/images/natas/11-3.png)
 
 As you can see, eDWo is being repeated which means it is the key. So now that we have the key, we can encrypt our original payload:
 
-![Index file](/assets/images/11-4.png)
+![Index file](/assets/images/natas/11-4.png)
 
 After changing our cookie to the value returned, we get the password:
 
-![Index file](/assets/images/11-5.png)
+![Index file](/assets/images/natas/11-5.png)
 
 > [!Tip] Takeaway
 > Avoid symmetric encryption algorithms since they are often easier to crack.
@@ -376,11 +376,11 @@ I first tried uploading a malicious php file that tries to print the contents of
 system("cat /etc/natas_webpass/natas13")
 ```
 
-![Index file](/assets/images/12-1.png)
+![Index file](/assets/images/natas/12-1.png)
 
 For some reason, even though we uploaded a php file, the server stores it as a jpg file:
 
-![Index file](/assets/images/12-2.png)
+![Index file](/assets/images/natas/12-2.png)
 
 Analysing the html, the value for the uploaded_file has already been determined so it will always be received by the server as a .jpg file when uploaded:
 ```html
@@ -401,7 +401,7 @@ The trick is to manually modify the html so that value attribute is a php file.
 ```
 As you can see, now it is being stored on the server as a php file:
 
-![Index file](/assets/images/12-3.png)
+![Index file](/assets/images/natas/12-3.png)
 
 Following the link executes the code since it is treated as a php file, showing us a page with just the password:
 ```html
@@ -419,7 +419,7 @@ ___
 
 Unlike the previous level, the file will be checked that is a jpg file before being uploaded:
 
-![Index file](/assets/images/13-1.png)
+![Index file](/assets/images/natas/13-1.png)
 
 The actual check is being done by the following php function which essentially checks the first few bytes of the file:
 ```php
@@ -469,7 +469,7 @@ The classic
 ```
 did the trick:
 
-![Index file](/assets/images/14-1.png)
+![Index file](/assets/images/natas/14-1.png)
 
 > [!Tip] Takeaway
 > User input should be sanitised by using in-built functions like mysqli_real_escape_string()
@@ -553,7 +553,7 @@ while(True):
 
 This is a snapshot of what the script is doing:
 
-![Index file](/assets/images/15-1.png)
+![Index file](/assets/images/natas/15-1.png)
 
 ```html
 hPkjKYviLQctEW33QmuXL6eDVfMW4sGo
@@ -565,7 +565,7 @@ ___
 **URL :** <http://natas16.natas.labs.overthewire.org/> \
 **Credentials :** *natas16:hPkjKYviLQctEW33QmuXL6eDVfMW4sGo*
 
-![Index file](/assets/images/16-1.png)
+![Index file](/assets/images/natas/16-1.png)
 
 Recall back to level 10 when we used the following payload:
 ```html
@@ -628,7 +628,7 @@ while(True):
 ```
 This is a snapshot of what the script is doing:
 
-![Index file](/assets/images/16-2.png)
+![Index file](/assets/images/natas/16-2.png)
 
 ```html
 EqjHJbo7LFNb8vwhHb9s75hokh5TF0OC
@@ -677,7 +677,7 @@ if (array_key_exists("username", $_REQUEST)) {
 ```
 Again, it seems like a bruteforce approach would work however we need a way to know if our query returned a match. I first tried comparing the request time of queries that returned a match against ones that didn't. 
 
-![Index file](/assets/images/17-1.png)
+![Index file](/assets/images/natas/17-1.png)
 
 Unfortunately, the request times were too random and I couldn't find any concrete pattern. This is where the in-built SQL SLEEP() function will be very useful in creating artificial delays in the network so that I can now actually compare network request times. Adding a 2 second sleep in the database if there's a match will indicate if the current payload produced a match. Here is the full script I used to obtain the password:
 ```py
@@ -800,7 +800,7 @@ if (my_session_start()) {
 
 After creating an account, I noticed were given a random PHPSESSID:
 
-![Index file](/assets/images/18-1.png)
+![Index file](/assets/images/natas/18-1.png)
 
 Based on the source code telling us there's only 640 ids, it seems a bruteforce approach seems likely where one of the PHPSESSID is associated with the admin account. We will try changing our PHPSESSID from 1 to 640 which the following script does:
 ```py
@@ -827,11 +827,11 @@ for i in range(MAX+1):
 
 ```
 
-![Index file](/assets/images/18-2.png)
+![Index file](/assets/images/natas/18-2.png)
 
 Changing our the PHPSESSID to the one our script found and then refreshing the page gives us the password for the next level:
 
-![Index file](/assets/images/18-3.png)
+![Index file](/assets/images/natas/18-3.png)
 
 > [!Tip] Takeaway
 > Session ids should be more random instead of generated sequentially
@@ -844,17 +844,17 @@ ___
 
 Unlike the previous level, we are told session ids are no longer sequential:
 
-![Index file](/assets/images/19-1.png)
+![Index file](/assets/images/natas/19-1.png)
 
-![Index file](/assets/images/19-2.png)
+![Index file](/assets/images/natas/19-2.png)
 
 Some of the characters looked like ASCII characters so I put it into a decoder:
 
-![Index file](/assets/images/19-3.png)
+![Index file](/assets/images/natas/19-3.png)
 
 After deleting the id, creating an account with the same name, and then decoding, I started to notice a pattern:
 
-![Index file](/assets/images/19-4.png)
+![Index file](/assets/images/natas/19-4.png)
 
 It looks like the id is being generated by prepending a number before the username it is given and then it gets encoded. I decided to write another bruteforce script that cycles through 1-admin to 640-admin to hopefully gain access to admin session:
 ```py
@@ -880,11 +880,11 @@ for i in range(MAX+1):
     break
 ```
 
-![Index file](/assets/images/19-5.png)
+![Index file](/assets/images/natas/19-5.png)
 
 Again, changing our PHPSESSID to the one our script find produces the password:
 
-![Index file](/assets/images/19-6.png)
+![Index file](/assets/images/natas/19-6.png)
 
 > [!Tip] Takeaway
 > Simple encoding of session ids is still highly vulnerable
@@ -993,10 +993,10 @@ ___
 **Credentials :** *natas21:BPhv63cKE1lkQl04cE5CuFTzXe15NfiH*
 
 We're told this level is co-located with another website:
-![Index file](/assets/images/21-1.png)
+![Index file](/assets/images/natas/21-1.png)
 
 This is what's on the other website:
-![Index file](/assets/images/21-2.png)
+![Index file](/assets/images/natas/21-2.png)
 
 First, I tried playing around with the website. After changing the bgcolor to red, I noticed the html changed which meant there could be a reflective XSS vulnerability:
 ```html
@@ -1019,7 +1019,7 @@ red'> <img src=x onerror=alert(1) alt='hi
 ```
 which confirmed there was an reflective XSS vulnerability:
 
-![Index file](/assets/images/21-3.png)
+![Index file](/assets/images/natas/21-3.png)
 
 Unfortunately, after playing around with various XSS payloads, I couldn't do much. I then looked at the source code for the condition, which again required
 ```php
@@ -1056,7 +1056,7 @@ So all I needed to was send a request with "admin": 1 in its body! This wasn't h
 
 The last thing I needed to do was change the PHPSESSID of the original website to match the PHPSESSID of the second website, which gave me the password:
 
-![Index file](/assets/images/21-4.png)
+![Index file](/assets/images/natas/21-4.png)
 
 #### Natas 22 Solution
 
@@ -1089,11 +1089,11 @@ if (array_key_exists("revelio", $_GET)) {
 ```
 Analysing the source code, it seemed like all I needed to do was pass in revelio as a query parameter. Unfortunately, I get a blank page and my url didn't change for some reason:
 
-![Index file](/assets/images/22-1.png)
+![Index file](/assets/images/natas/22-1.png)
 
 Analysing the network request further, it seems I was redirected to '/':
 
-![Index file](/assets/images/22-2.png)
+![Index file](/assets/images/natas/22-2.png)
 
 So I then wondered if I made a curl request would it be any different? I used the following payload:
 ```bash
@@ -1127,18 +1127,18 @@ if (array_key_exists("passwd",$_REQUEST)) {
 ```
 I first had to search up what strstr() did. All it did was check if a string contained a particular substring, in our case "iloveyou". The condition seemed simple, pass in a string longer than 10 characters with "iloveyou" as a substring. So I tried doing that:
 
-![Index file](/assets/images/23-1.png)
+![Index file](/assets/images/natas/23-1.png)
 
 Unfortunately, that did not work. After re-reading the source code, I realised it wasn't actually checking the length of the string, but the actual value of the string. Passing in a number larger than 10 doesn't work, since it will fail the first condition:
 
-![Index file](/assets/images/23-2.png)
+![Index file](/assets/images/natas/23-2.png)
 
 I then wondered if something like the following would work:
 ```html
 15iloveyou
 ```
 
-![Index file](/assets/images/23-3.png)
+![Index file](/assets/images/natas/23-3.png)
 
 It appears the way PHP compares a string and number is it will take as many leading characters of the string that form a valid number and ignore the rest which is why our payload worked (15 > 10). This is why strict comparison (===) is important! 
 
@@ -1163,19 +1163,19 @@ if (array_key_exists("passwd",$_REQUEST)) {
 ```
 Unfortunately, there wasn't much to work with. Guessing the password was not a viable option. The only useful thing here was the strcmp() function, so I started looking for vulnerabilities with this in-built PHP function. After reading through the strcmp() documentation, I found a comment that said strcmp() can behave unexpectedly if both of its arguments aren't strings: 
 
-![Index file](/assets/images/24-1.png)
+![Index file](/assets/images/natas/24-1.png)
 
 So I tried passing in NULL which didn't work as I think its being processed as a string "NULL":
 
-![Index file](/assets/images/24-2.png)
+![Index file](/assets/images/natas/24-2.png)
 
 I then tried changing how 'passwd' was being seen by the server by modifying the inputs name to passwd[]. If you look at the network request, it should now be seen as an array instead of a string:
 
-![Index file](/assets/images/24-3.png)
+![Index file](/assets/images/natas/24-3.png)
 
 Just like the comment had mentioned, this produces unexpected behaviour and gives us the password:
 
-![Index file](/assets/images/24-4.png)
+![Index file](/assets/images/natas/24-4.png)
 
 #### Natas 25 Solution
 
@@ -1185,7 +1185,7 @@ ___
 
 We're given a page with text that we can also change the language the text is displayed in:
 
-![Index file](/assets/images/25-1.png)
+![Index file](/assets/images/natas/25-1.png)
 
 We're also given the following source code:
 ```php
@@ -1247,7 +1247,7 @@ lang=/etc/natas_webpass/natas26:
 ```
 Unfortunately, this only produced errors:
 
-![Index file](/assets/images/25-2.png)
+![Index file](/assets/images/natas/25-2.png)
 
 Analysing the source code again, this function looked interesting as it was writing the value of HTTP_USER_AGENT to a file:
 ```php
@@ -1405,11 +1405,11 @@ function storeData(){
 ```
 The first thing that catches my eye is the use of unserialize() which leads me to think there could be an object deserialization vulnerability. I noticed we're given a cookie called drawing:
 
-![Index file](/assets/images/26-1.png)
+![Index file](/assets/images/natas/26-1.png)
 
 This is what 'drawing' looks like after unserialisation:
 
-![Index file](/assets/images/26-2.png)
+![Index file](/assets/images/natas/26-2.png)
 
 Next, we will try to serialize our malicious code and replace it with the existing 'drawing' cookie. We will replace the existing Logger class with our own Logger class that will write the following code:
 ```php
@@ -1444,7 +1444,7 @@ Tzo2OiJMb2dnZXIiOjI6e3M6MTU6IgBMb2dnZXIAbG9nRmlsZSI7czo2NToiL3Zhci93d3cvbmF0YXMv
 
 Next, replace the value of the existing 'data' cookie with the encoding you just generated and refresh. Navigate to http://natas26.natas.labs.overthewire.org/img/natas26_2gfq31bqb22koati25vujtiof1.php and the password will be on the page:
 
-![Index file](/assets/images/26-3.png)
+![Index file](/assets/images/natas/26-3.png)
 
 #### Natas 27 Solution
 
@@ -1560,15 +1560,15 @@ if (array_key_exists("username", $_REQUEST) and array_key_exists("password", $_R
 ```
 I started by playing with the website and found that the server will create a new user if I try to log in as a user that doesn't exist yet:
 
-![Index file](/assets/images/27-1.png)
+![Index file](/assets/images/natas/27-1.png)
 
 I also get a data dump about my account if I try to login as an existing user:
 
-![Index file](/assets/images/27-2.png)
+![Index file](/assets/images/natas/27-2.png)
 
 I then tried to login as natas28, however, instead of creating a new user I get something else:
 
-![Index file](/assets/images/27-3.png)
+![Index file](/assets/images/natas/27-3.png)
 
 It seems this level likely involves finding the password for natas28, and then maybe the password for the next level will be provided in the data dump. So I then tested for SQL vulnerabilities using a simple SQL injection:
 ```sql
@@ -1577,7 +1577,7 @@ It seems this level likely involves finding the password for natas28, and then m
 
 Unfortunately, this did not work as the source code uses mysqli_real_escape_string():
 
-![Index file](/assets/images/27-4.png)
+![Index file](/assets/images/natas/27-4.png)
 
 After reading the documentation for mysqli_real_escape_string() and looking for potential vulnerabilities, it seemed unlikely there was any SQL injection vulnerabilities. I then tried focusing on this particular function:
 ```php
